@@ -1,0 +1,201 @@
+<?php
+require "php/db.php";
+
+$ciudad = $_GET["ciudad"] ?? "";
+$especialidad = $_GET["especialidad"] ?? "";
+$rating = $_GET["rating"] ?? "";
+
+$sql = "
+SELECT 
+    a.*,
+    IFNULL(AVG(c.calificacion), 0) AS promedio
+FROM abogados a
+LEFT JOIN comentarios c ON a.id = c.abogado_id
+WHERE 1=1
+";
+
+$params = [];
+
+if (!empty($ciudad)) {
+    $sql .= " AND a.ciudad = :ciudad";
+    $params[":ciudad"] = $ciudad;
+}
+
+if (!empty($especialidad)) {
+    $sql .= " AND a.especializacion = :especialidad";
+    $params[":especialidad"] = $especialidad;
+}
+
+$sql .= " GROUP BY a.id";
+
+if (!empty($rating)) {
+    $sql .= " HAVING promedio >= :rating";
+    $params[":rating"] = $rating;
+}
+
+$sql .= " ORDER BY a.created_at DESC";
+
+if (!isset($pdo) || !$pdo instanceof PDO) {
+    die("Error de conexión con la base de datos.");
+}
+
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
+$abogados = $stmt->fetchAll(PDO::FETCH_ASSOC);
+?>
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Abogalia | Encuentra abogados y agenda citas</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <script defer src="js/app.js"></script>
+</head>
+
+<body>
+
+<header class="header">
+  <div class="logo-container">
+    <img src="assets/Logohorizontal.jpg" alt="Abogalia Logo" class="logo">
+  </div>
+
+  <nav class="nav">
+    <button class="menu-toggle" id="menuToggle">☰</button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="#inicio">Inicio</a></li>
+      <li><a href="#abogados">Abogados</a></li>
+      <li><a href="views/abogado_form.php">Registrarse como Abogado</a></li>
+      <li><a href="views/login.php">Login Abogados</a></li>
+      <li><a href="#blogs">Blogs</a></li>
+    </ul>
+  </nav>
+</header>
+
+<section class="hero" id="inicio">
+  <div class="hero-overlay">
+    <h1>Abogalia</h1>
+    <p class="hero-subtitle">
+      Abogalia es una plataforma creada para facilitar el contacto con abogados confiables,
+      permitiendo encontrar asesoría legal de manera rápida, clara y segura.
+      Sabemos que muchas veces buscar un abogado puede ser complicado, y nuestro objetivo es
+      brindarte una opción más transparente y accesible.
+    </p>
+
+    <div class="values">
+      <div class="value-card">
+        <h3>CONFIANZA</h3>
+        <p>Tu tranquilidad, nuestra prioridad.</p>
+      </div>
+      <div class="value-card">
+        <h3>JUSTICIA</h3>
+        <p>Defendemos tus derechos.</p>
+      </div>
+      <div class="value-card">
+        <h3>EXPERIENCIA</h3>
+        <p>Abogados expertos a tu servicio.</p>
+      </div>
+      <div class="value-card">
+        <h3>SEGURIDAD</h3>
+        <p>Protegemos tu información y tu caso.</p>
+      </div>
+      <div class="value-card">
+        <h3>RAPIDEZ</h3>
+        <p>Asesoría legal sin complicaciones.</p>
+      </div>
+    </div>
+
+    <a href="#abogados" class="btn-primary">Ver Abogados</a>
+  </div>
+</section>
+
+<section class="filters" id="abogados">
+  <h2>Encuentra un abogado</h2>
+  <p>Filtra por ciudad, especialidad o calificación para encontrar el abogado ideal.</p>
+
+  <form method="GET" class="filter-grid">
+
+    <div class="filter-box">
+      <label>Ubicación o ciudad</label>
+      <select name="ciudad">
+        <option value="">Todas</option>
+        <option value="Aguascalientes" <?= $ciudad=="Aguascalientes" ? "selected" : "" ?>>Aguascalientes</option>
+        <option value="León" <?= $ciudad=="León" ? "selected" : "" ?>>León</option>
+        <option value="San Luis Potosí" <?= $ciudad=="San Luis Potosí" ? "selected" : "" ?>>San Luis Potosí</option>
+        <option value="CDMX" <?= $ciudad=="CDMX" ? "selected" : "" ?>>CDMX</option>
+        <option value="Guadalajara" <?= $ciudad=="Guadalajara" ? "selected" : "" ?>>Guadalajara</option>
+        <option value="Monterrey" <?= $ciudad=="Monterrey" ? "selected" : "" ?>>Monterrey</option>
+      </select>
+    </div>
+
+    <div class="filter-box">
+      <label>Especialización</label>
+      <select name="especialidad">
+        <option value="">Todas</option>
+        <option value="Penal" <?= $especialidad=="Penal" ? "selected" : "" ?>>Penal</option>
+        <option value="Familiar" <?= $especialidad=="Familiar" ? "selected" : "" ?>>Familiar</option>
+        <option value="Laboral" <?= $especialidad=="Laboral" ? "selected" : "" ?>>Laboral</option>
+        <option value="Mercantil" <?= $especialidad=="Mercantil" ? "selected" : "" ?>>Mercantil</option>
+      </select>
+    </div>
+
+    <div class="filter-box">
+      <label>Calificación mínima</label>
+      <select name="rating">
+        <option value="">Todas</option>
+        <option value="5" <?= $rating=="5" ? "selected" : "" ?>>5 estrellas</option>
+        <option value="4" <?= $rating=="4" ? "selected" : "" ?>>4 estrellas o más</option>
+        <option value="3" <?= $rating=="3" ? "selected" : "" ?>>3 estrellas o más</option>
+      </select>
+    </div>
+
+    <button class="btn-secondary" type="submit">Aplicar filtros</button>
+
+  </form>
+
+  <div class="lawyer-list">
+
+    <?php if(count($abogados) == 0): ?>
+      <p style="margin-top:25px;">No se encontraron abogados con los filtros seleccionados.</p>
+    <?php endif; ?>
+
+    <?php foreach($abogados as $abogado): ?>
+      <div class="lawyer-card">
+        
+        <img src="<?= $abogado['foto'] ? 'uploads/'.$abogado['foto'] : 'assets/default.jpg' ?>" alt="Foto abogado">
+
+        <h3><?= htmlspecialchars($abogado['nombre']) ?></h3>
+        <p><strong>Especialidad:</strong> <?= htmlspecialchars($abogado['especializacion']) ?></p>
+        <p><strong>Ciudad:</strong> <?= htmlspecialchars($abogado['ciudad']) ?></p>
+        <p><strong>Calificación:</strong> <?= round($abogado["promedio"], 1) ?> ⭐</p>
+
+        <a href="views/abogado_profile.php?id=<?= $abogado['id'] ?>" class="btn-secondary">
+          Ver Perfil
+        </a>
+
+      </div>
+    <?php endforeach; ?>
+
+  </div>
+</section>
+
+<section class="blogs" id="blogs">
+  <h2>Blogs y noticias legales en México</h2>
+  <p>Guías y recursos útiles antes de contratar un servicio legal.</p>
+
+  <div class="blog-links">
+    <a href="https://www.scjn.gob.mx/" target="_blank">Suprema Corte de Justicia de la Nación</a>
+    <a href="https://www.gob.mx/profeco" target="_blank">PROFECO - Derechos del consumidor</a>
+    <a href="https://www.diputados.gob.mx/LeyesBiblio/pdf/CPEUM.pdf" target="_blank">Constitución Mexicana (PDF)</a>
+  </div>
+</section>
+
+<footer class="footer">
+  <p>© 2026 Abogalia. Todos los derechos reservados.</p>
+</footer>
+
+</body>
+</html>
+
+
