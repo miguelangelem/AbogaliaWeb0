@@ -1,0 +1,23 @@
+# Archivos temporales
+*.tmp
+*.log
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Configuración local
+.env
+
+# XAMPP
+xampp/
+
+# Datos temporales de subida
+uploads/*
+
+# Mantener la carpeta uploads
+!uploads/.gitkeep
+
+# Respaldo local de la base de datos
+php/abogalia_db.sql
